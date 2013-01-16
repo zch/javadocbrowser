@@ -9,20 +9,21 @@ import java.net.URL;
 import java.net.URLConnection;
 
 import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
 
-@WebServlet("/*")
 public class JavadocBrowser extends HttpServlet {
 
     /**
      * Maven2 repositories from which javadocs are searched
      */
-    private static final String[] repos = { "http://maven.vaadin.com/vaadin-addons" ,"http://repo1.maven.org/maven2" };
+    private static final String[] repos = {
+            "http://maven.vaadin.com/vaadin-addons",
+            "http://repo1.maven.org/maven2" };
 
     public static final File DOC_CACHE = new File(
             System.getProperty("user.home") + "/jdoccache");
@@ -39,8 +40,20 @@ public class JavadocBrowser extends HttpServlet {
         try {
             String[] parts = request.getPathInfo().split("\\/", 5);
             String groupId = parts[1];
+            if (groupId.isEmpty()) {
+                listGroups(response);
+                return;
+            }
             String artifactId = parts[2];
+            if (artifactId.isEmpty()) {
+                listArtifacts(response, groupId);
+                return;
+            }
             String version = parts[3];
+            if (version.isEmpty()) {
+                listVersions(response, groupId, artifactId);
+                return;
+            }
             String path = parts[4];
 
             File file = new File(DOC_CACHE, groupId + "/" + artifactId + "/"
@@ -54,19 +67,64 @@ public class JavadocBrowser extends HttpServlet {
                 path = "index.html";
             }
 
-            URL url = new URL("jar:file:" + file.getAbsolutePath() + "!/" + path);
+            URL url = new URL("jar:file:" + file.getAbsolutePath() + "!/"
+                    + path);
             URLConnection openConnection = url.openConnection();
             response.setHeader("Cache-Control", "max-age=" + 7 * 24 * 60 * 60);
             response.setContentType(openConnection.getContentType());
             response.setContentLength(openConnection.getContentLength());
             InputStream inputStream = openConnection.getInputStream();
-            IOUtils.copy(inputStream,
-                    response.getOutputStream());
+            IOUtils.copy(inputStream, response.getOutputStream());
             inputStream.close();
         } catch (Exception e) {
             printErrorPage(response, e);
         }
 
+    }
+
+    private void listGroups(HttpServletResponse response) throws IOException {
+        listFolders(response, DOC_CACHE, "Groups");
+    }
+
+    private void listVersions(HttpServletResponse response, String groupId,
+            String artifactId) throws IOException {
+        File file = new File(DOC_CACHE, groupId + "/" + artifactId);
+        listFolders(response, file, "Versions for " + artifactId);
+    }
+
+    private void listArtifacts(HttpServletResponse response, String groupId)
+            throws IOException {
+        File file = new File(DOC_CACHE, groupId);
+        listFolders(response, file, "Artifacts for " + groupId);
+    }
+
+    private void listFolders(HttpServletResponse response, File file,
+            String caption) throws IOException {
+        if (!file.exists()) {
+            printErrorPage(response, new Exception("Not found"));
+        } else {
+            ServletOutputStream outputStream = response.getOutputStream();
+            header(outputStream, caption);
+            File[] listFiles = file.listFiles();
+            for (File file2 : listFiles) {
+                if (file2.isDirectory() && !file2.isHidden()) {
+                    outputStream.println("<a href='" + file2.getName() + "/'>"
+                            + file2.getName() + "</a><br>");
+                }
+            }
+            footer(outputStream);
+        }
+    }
+
+    private void footer(ServletOutputStream outputStream) throws IOException {
+        outputStream.println("</html></body>");
+    }
+
+    private void header(ServletOutputStream outputStream, String caption)
+            throws IOException {
+        outputStream.println(String.format(
+                "<html><head><title>%s</title></head><body><h1>%1$s</h1>",
+                caption));
     }
 
     private void printErrorPage(HttpServletResponse response, Exception e)
@@ -76,7 +134,8 @@ public class JavadocBrowser extends HttpServlet {
         response.getOutputStream().println("Ooops! Javadocs not found!?");
     }
 
-    private void cache(String artifactId, String version, String groupId, File cachefile) throws FileNotFoundException {
+    private void cache(String artifactId, String version, String groupId,
+            File cachefile) throws FileNotFoundException {
         String artifactName = artifactId + "-" + version;
         if (!cachefile.exists()) {
             cachefile.getParentFile().mkdirs();
@@ -88,8 +147,7 @@ public class JavadocBrowser extends HttpServlet {
                     URL url = new URL(repo + repopath + artifactName
                             + "-javadoc.jar");
                     InputStream openStream = url.openStream();
-                    IOUtils.copy(openStream, new FileOutputStream(
-                            cachefile));
+                    IOUtils.copy(openStream, new FileOutputStream(cachefile));
                     openStream.close();
                     break;
                 } catch (Exception e) {
