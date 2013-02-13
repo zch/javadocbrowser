@@ -103,6 +103,7 @@ public class JavadocBrowser extends HttpServlet {
         if (!file.exists()) {
             printErrorPage(response, new Exception("Not found"));
         } else {
+            response.setContentType("text/html");
             ServletOutputStream outputStream = response.getOutputStream();
             header(outputStream, caption);
             File[] listFiles = file.listFiles();
