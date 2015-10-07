@@ -1,5 +1,7 @@
 package org.vaadin;
 
+import static javax.activation.FileTypeMap.getDefaultFileTypeMap;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -71,7 +73,7 @@ public class JavadocBrowser extends HttpServlet {
                     + path);
             URLConnection openConnection = url.openConnection();
             response.setHeader("Cache-Control", "max-age=" + 7 * 24 * 60 * 60);
-            response.setContentType(openConnection.getContentType());
+            setContentTypeHeader(response, path);
             response.setContentLength(openConnection.getContentLength());
             InputStream inputStream = openConnection.getInputStream();
             IOUtils.copy(inputStream, response.getOutputStream());
@@ -160,6 +162,33 @@ public class JavadocBrowser extends HttpServlet {
             throw new FileNotFoundException();
         }
 
+    }
+
+    private void setContentTypeHeader(HttpServletResponse response, String path) {
+        String mimeType = null;
+        int idx = path.lastIndexOf('.');
+        if (idx == -1) {
+            mimeType = "application/octet-stream";
+        } else {
+            String fileExtension = path.substring(idx).toLowerCase();
+            if (fileExtension.equals(".js")) {
+                mimeType = "application/javascript";
+            } else if (fileExtension.equals(".xml")) {
+                mimeType = "application/xml";
+            } else if (fileExtension.equals(".json")) {
+                mimeType = "application/json";
+            } else if (fileExtension.equals(".txt")) {
+                mimeType = "text/plain";
+            } else if (fileExtension.equals(".html")) {
+                mimeType = "text/html";
+            } else if (fileExtension.equals(".css")) {
+                mimeType = "text/css";
+            } else {
+                mimeType = getDefaultFileTypeMap().getContentType(path);
+                System.out.println(path);
+            }
+        }
+        response.setContentType(mimeType);
     }
 
 }
