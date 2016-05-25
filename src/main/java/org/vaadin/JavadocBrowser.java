@@ -43,17 +43,17 @@ public class JavadocBrowser extends HttpServlet {
             String[] parts = request.getPathInfo().split("\\/", 5);
             String groupId = parts[1];
             if (groupId.isEmpty()) {
-                listGroups(response);
+                forbidden(response);
                 return;
             }
             String artifactId = parts[2];
             if (artifactId.isEmpty()) {
-                listArtifacts(response, groupId);
+                forbidden(response);
                 return;
             }
             String version = parts[3];
             if (version.isEmpty()) {
-                listVersions(response, groupId, artifactId);
+                forbidden(response);
                 return;
             }
             String path = parts[4];
@@ -84,58 +84,19 @@ public class JavadocBrowser extends HttpServlet {
 
     }
 
-    private void listGroups(HttpServletResponse response) throws IOException {
-        listFolders(response, DOC_CACHE, "Groups");
-    }
-
-    private void listVersions(HttpServletResponse response, String groupId,
-            String artifactId) throws IOException {
-        File file = new File(DOC_CACHE, groupId + "/" + artifactId);
-        listFolders(response, file, "Versions for " + artifactId);
-    }
-
-    private void listArtifacts(HttpServletResponse response, String groupId)
-            throws IOException {
-        File file = new File(DOC_CACHE, groupId);
-        listFolders(response, file, "Artifacts for " + groupId);
-    }
-
-    private void listFolders(HttpServletResponse response, File file,
-            String caption) throws IOException {
-        if (!file.exists()) {
-            printErrorPage(response, new Exception("Not found"));
-        } else {
-            response.setContentType("text/html");
-            ServletOutputStream outputStream = response.getOutputStream();
-            header(outputStream, caption);
-            File[] listFiles = file.listFiles();
-            for (File file2 : listFiles) {
-                if (file2.isDirectory() && !file2.isHidden()) {
-                    outputStream.println("<a href='" + file2.getName() + "/'>"
-                            + file2.getName() + "</a><br>");
-                }
-            }
-            footer(outputStream);
-        }
-    }
-
-    private void footer(ServletOutputStream outputStream) throws IOException {
-        outputStream.println("</html></body>");
-    }
-
-    private void header(ServletOutputStream outputStream, String caption)
-            throws IOException {
-        outputStream.println(String.format(
-                "<html><head><title>%s</title></head><body><h1>%1$s</h1>",
-                caption));
-    }
-
     private void printErrorPage(HttpServletResponse response, Exception e)
             throws IOException {
-        e.printStackTrace();
+//        e.printStackTrace();
         response.setStatus(404);
         response.getOutputStream().println("Ooops! Javadocs not found!?");
     }
+
+    private void forbidden(HttpServletResponse response)
+            throws IOException {
+        response.setStatus(403);
+        response.getOutputStream().println("403 - Forbidden");
+    }
+
 
     private void cache(String artifactId, String version, String groupId,
             File cachefile) throws FileNotFoundException {
